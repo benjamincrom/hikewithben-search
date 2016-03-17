@@ -8,7 +8,7 @@ import os
 
 import redis
 
-from lib import travel
+from lib.common_utilities import travel
 
 REDIS_URL = os.environ['REDIS_URL']
 DEFAULT_PROCESS_POOL_SIZE = 8

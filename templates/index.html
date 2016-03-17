@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hike With Ben Trip Planner</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <link href="http://netdna.bootstrapcdn.com/bootswatch/3.3.5/yeti/bootstrap.min.css" rel="stylesheet" media="screen">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      function hide_calendars(jQuery) {
+        {% for recarea in recarea_list %}
+          {% if recarea.get('RecAreaWeatherDict') %}
+            $("#recarea_weather_{{ recarea['RecAreaID'] }}").toggle();
+          {% endif %}
+          {% for facility in recarea.get('facilities', []) %}
+            {% if facility.get('reservation') %}
+              $("#facility_reservation_{{ facility['FacilityID'] }}").toggle();
+              $("#facility_calendar_{{ facility['FacilityID'] }}").toggle();
+            {% endif %}
+          {% endfor %}
+          $("#recarea_facilities_{{ recarea['RecAreaID'] }}").toggle();
+        {% endfor %}
+        $("#loading_banner").toggle();
+      }
+
+      google.charts.load(43, {packages:["calendar"]});
+      google.charts.setOnLoadCallback(drawChart);
+
+      function drawChart() {
+        {% for recarea in recarea_list %}
+          {% if recarea.get('RecAreaWeatherDict') %}
+            var dataTable_{{ recarea['RecAreaID'] }} = new google.visualization.DataTable();
+            dataTable_{{ recarea['RecAreaID'] }}.addColumn({ type: 'date', id: 'Date' });
+            dataTable_{{ recarea['RecAreaID'] }}.addColumn({ type: 'number', id: 'AvgTemp' });
+            dataTable_{{ recarea['RecAreaID'] }}.addColumn({ type: 'string', role: 'tooltip', 'p': {'html': true}});
+            dataTable_{{ recarea['RecAreaID'] }}.addRows([
+              {% for date_str, date_dict in recarea.get('RecAreaWeatherDict', {}).iteritems() %}
+                [ new Date('{{ date_str }} EST'),
+                  {{ date_dict['average_temp'] }},
+                  (
+                    '<div style="padding: 10px;">'
+                    + '<h5>{{ date_str }}</h5>'
+                    + '<table cellpadding="10" cellspacing="10">'
+                    + '<tr><td><b>Min</b> </td><td align="right">{{ date_dict["min_temp"] }} F</td></tr>'
+                    + '<tr><td><b>Avg</b> </td><td align="right">{{ date_dict["average_temp"] }} F</td></tr>'
+                    + '<tr><td><b>Max</b> </td><td align="right">{{ date_dict["max_temp"] }} F</td></tr>'
+                    {% if date_dict.get("quartile_25_precip") %}
+                      + '<tr><td><b>Precip</b> </td><td align="right">'
+                      + '{{ date_dict["quartile_25_precip"]/100.0 }}, '
+                      + '{{ date_dict["quartile_50_precip"]/100.0 }}, '
+                      + '{{ date_dict["quartile_75_precip"]/100.0 }} in.</td></tr>'
+                    {% endif %}
+                    + '</table></div>'
+                  )
+                ],
+              {% endfor %}
+            ]);
+
+            var chart_{{ recarea['RecAreaID'] }} = new google.visualization.Calendar(
+              document.getElementById('calendar_{{ recarea["RecAreaID"] }}')
+            );
+
+            var options = {
+              tooltip: {isHtml: true},
+              title: 'Weather',
+              legend: 'none',
+            };
+
+            chart_{{ recarea['RecAreaID'] }}.draw(dataTable_{{ recarea['RecAreaID'] }}, options);
+          {% endif %}
+          {% for facility in recarea['facilities'] %}
+            {% if facility.get('reservation') %}
+              var FacilityTable_{{ facility['FacilityID'] }} = new google.visualization.DataTable();
+              FacilityTable_{{ facility['FacilityID'] }}.addColumn({ type: 'date', id: 'Date' });
+              FacilityTable_{{ facility['FacilityID'] }}.addColumn({ type: 'number', id: 'Reservations' });
+              FacilityTable_{{ facility['FacilityID'] }}.addColumn({ type: 'string', role: 'tooltip', 'p': {'html': true}});
+              FacilityTable_{{ facility['FacilityID'] }}.addRows([
+                {% for date_str, date_dict in facility.get('reservation', {}).iteritems() %}
+                  [
+                    new Date('{{ date_str }} EST'),
+                    {{ date_dict['TOTAL'] }},
+                    (
+                     '<div style="padding: 10px">'
+                      + '<h5>{{ date_str }}</h5>'
+                      + '<table cellpadding="10" cellspacing="10">'
+                        {% for key, val in date_dict.iteritems() %}
+                          {% if key != 'TOTAL' %}
+                            + '<tr><td><b>{{ key }}</b>  </td><td>{{ val }}</td></tr>'
+                          {% endif %}
+                        {% endfor %}
+                        + '<tr><td><b>TOTAL</b>  </td><td>{{ date_dict["TOTAL"] }}</td></tr>'
+                      + '</table></div>'
+                    )
+                  ],
+                {% endfor %}
+              ]);
+
+              var facility_options = {
+                tooltip: {isHtml: true},
+                calendar: { cellSize: 12 },
+                title: 'Reservations',
+                legend: 'none',
+              };
+              
+              var facility_chart_{{ facility['FacilityID'] }} = new google.visualization.Calendar(
+                document.getElementById('facility_calendar_{{ facility["FacilityID"] }}')
+              );
+
+              facility_chart_{{ facility['FacilityID'] }}.draw(FacilityTable_{{ facility['FacilityID'] }}, facility_options);
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+        hide_calendars();
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container"> 
+      <div class="row">
+        <div class="col-md-6">
+          <div style="height: 500px;" id="loading_banner">
+            <h1>Loading...<h1>
+            <h1>Loading...<h1>
+            <h1>Loading...<h1>
+            <h1>Loading...<h1>
+            <h1>Loading...<h1>
+            <h1>Loading...<h1>
+            <h1>Loading...<h1>
+            <h1>Loading...<h1>
+          </div>
+          <h3>Search Form<h3>
+          <form action="/" method="get">
+            <table class="table">
+                <tr>
+                  <td>Home Address</td>
+                  <td><input type="text" name="home_address_str" value="{{ request_dict.get('home_address_str', '') }}"></td>
+                </tr>
+                <tr>
+                  <td>Name Contains</td>
+                  <td><input type="text" name="name_contains_str" value="{{ request_dict.get('name_contains_str', '') }}"></td>
+                </tr>
+                <tr>
+                  <td>Date Range</td>
+                  <td>
+                    <input type="text" name="start_date" value="{{ request_dict.get('start_date', '') }}"> - 
+                    <input type="text" name="finish_date" value="{{ request_dict.get('finish_date', '') }}"></input>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Temp. Range</td>
+                  <td>
+                    <input type="text" name="min_temp" value="{{ request_dict.get('min_temp', '') }}"> - 
+                    <input type="text" name="max_temp" value="{{ request_dict.get('max_temp', '') }}">
+                  </td>
+                </tr>
+                <tr>
+                  <td>Distance Range</td>
+                  <td>
+                    <input type="text" name="min_distance" value="{{ request_dict.get('min_distance', '') }}"> - 
+                    <input type="text" name="max_distance" value="{{ request_dict.get('max_distance', '') }}">
+                  </td>
+                </tr>
+                <tr>
+                  <td>Weekends Only</td>
+                  <td>
+                    <input type="checkbox" name="weekends_only" 
+                     {% if request_dict.get('weekends_only') %} checked {% endif %}>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Show Only Available</td>
+                  <td>
+                    <input type="checkbox" name="show_only_available" 
+                     {% if request_dict.get('show_only_available') %} checked {% endif %}>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2"><input type="submit" value="Submit"></td>
+                </tr>
+            </table>
+          </form>
+        </div>
+      </div>
+      <h3>Results:</h3>
+      {% for recarea in recarea_list %}
+        <div id="recarea">
+          <div class="row" id="recarea_title">
+            <div class="col-md-12">
+              <div class="col-md-5">
+                <a href="http://www.google.com/maps/place/{{ recarea['RecAreaLatitude'] }}, {{ recarea['RecAreaLongitude'] }}">
+                  <h4>{{ recarea['RecAreaName'] }}</h4>
+                </a>
+              </div>
+              <div class="col-md-3"><h4>
+                {{ recarea['distance_from_home'] }} miles
+              </h4></div>
+              <div class="col-md-4">
+                <button onclick='$("#recarea_description_{{ recarea["RecAreaID"] }}").toggle();'>Description</button>
+                {% if recarea.get('RecAreaWeatherDict') %}
+                  <button onclick='$("#recarea_weather_{{ recarea["RecAreaID"] }}").toggle();'>Weather</button>
+                {% endif %}
+                {% if recarea.get('facilities') %}
+                  <button onclick='$("#recarea_facilities_{{ recarea["RecAreaID"] }}").toggle();'>Facilities</button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="row" id="recarea_description_{{ recarea['RecAreaID'] }}" hidden>
+            <div class="col-md-1"></div>
+            <div class="col-md-8">
+              <table class="table">
+                <tr>
+                  <td><b>RecArea Description<b></td>
+                  <td>
+                    {{ recarea['RecAreaDescription'] }}
+                  </td>
+                </tr>
+                {% if recarea.get('RecAreaDirections') %}
+                  <tr>
+                    <td><b>RecArea Directions<b></td>
+                    <td>
+                      {{ recarea['RecAreaDirections'] }}
+                    </td>
+                  </tr>
+                {% endif %}
+                <tr>
+                  <td><b>Map URL<b></td>
+                  <td>
+                    <a href="{{ recarea['RecAreaMapURL'] }}">
+                      Recarea Map Link
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          {% if recarea.get('RecAreaWeatherDict') %}
+            <div class="row" id="recarea_weather_{{ recarea['RecAreaID'] }}">
+              <div class="col-md-1"></div>
+              <div class="col-md-11">
+                <div id="calendar_{{ recarea['RecAreaID'] }}"></div>
+              </div>
+            </div>
+          {% endif %}
+          {% if recarea.get('facilities') %}
+            <div class="row" id="recarea_facilities_{{ recarea['RecAreaID'] }}">
+              <div class="col-md-1"></div>
+              <div class="col-md-11">
+                {% for facility in recarea['facilities'] %}
+                  <div class="row" id="facility">
+                    <div class="row" id="facility_title">
+                      <div class="col-md-4">
+                        <a href="http://www.google.com/maps/place/{{ facility['FacilityLatitude'] }}, {{ facility['FacilityLongitude'] }}">
+                          <h5>{{ facility['FacilityName'] }}<h5>
+                        </a>
+                      </div>
+                      <div class="col-md-2"></div>
+                      <div class="col-md-6">
+                        <button onclick='$("#facility_description_{{ facility["FacilityID"] }}").toggle();'>
+                          Description
+                        </button>
+                        {% if facility.get('reservation') %}
+                          <button onclick='$("#facility_reservation_{{ facility["FacilityID"] }}").toggle();
+                                           $("#facility_calendar_{{ facility["FacilityID"] }}").toggle();'>
+                            Reservations
+                          </button>
+                        {% endif %}
+                      </div>
+                    </div>
+                    <div class="row" id="facility_description_{{ facility['FacilityID'] }}" hidden>
+                      <div class="col-md-1"></div>
+                      <div class="col-md-8">
+                        <table class="table">
+                          {% if facility['FacilityTypeDescription'] %}
+                            <tr>
+                              <td><b>Facility Type<b></td>
+                              <td>
+                                {{ facility['FacilityTypeDescription'] }}
+                              </td>
+                            </tr>
+                          {% endif %}
+                          <tr>
+                            <td><b>Facility Description<b></td>
+                            <td>
+                              <b>Overview</b><br />
+                              {{ facility['FacilityDescription']['overview'] }}
+                              <br />
+                              <br />
+                              {% if facility['FacilityDescription']['natural_features'] %}
+                                <b>Natural Features</b><br />
+                                {{ facility['FacilityDescription']['natural_features'] }}
+                                <br />
+                                <br />
+                              {% endif %}
+                              {% if facility['FacilityDescription']['recreation'] %}
+                                <b>Recreation</b><br />
+                                {{ facility['FacilityDescription']['recreation'] }}
+                                <br />
+                                <br />
+                              {% endif %}
+                              {% if facility['FacilityDescription']['facilities'] %}
+                                <b>Facilities</b><br />
+                                {{ facility['FacilityDescription']['facilities'] }}
+                                <br />
+                              {% endif %}
+                            </td>
+                          </tr>
+                          {% if facility.get('FacilityDirections') %}
+                            <tr>
+                              <td><b>Facility Directions<b></td>
+                              <td>
+                                {{ facility['FacilityDirections'] }}
+                              </td>
+                            </tr>
+                          {% endif %}
+                          {% if facility['ReservationUrl'] %}
+                            <tr>
+                              <td><b>Facility Reservation URL<b></td>
+                              <td>
+                                <a href="{{ facility['ReservationUrl'] }}">
+                                  Reservations
+                                </a>
+                              </td>
+                            </tr>
+                          {% endif %}
+                        </table>
+                      </div>
+                    </div>
+                    {% if facility.get('reservation') %}
+                      <div class="row" id="facility_reservation_{{ facility['FacilityID'] }}">
+                        <div class="col-md-1"></div>
+                        <div class="col-md-11">
+                          <div id="facility_calendar_{{ facility['FacilityID'] }}"></div>
+                        </div>
+                      </div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %} 
+        </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>
